@@ -18,6 +18,7 @@ spec:
     metadata:
       annotations:
         instrumentation.opentelemetry.io/inject-go: "go-instrumentation"
+        instrumentation.opentelemetry.io/otel-go-auto-target-exe: "/usr/local/go/bin/go"
       labels:
         app: backend-go
     spec:

@@ -12,3 +12,4 @@ spec:
   sampler:
     type: parentbased_traceidratio
     argument: "1"
+  
