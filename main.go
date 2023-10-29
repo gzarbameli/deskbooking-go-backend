@@ -78,5 +78,6 @@ func main() {
     // Avvia il server
     if err := r.Run(":5001"); err != nil {
         log.Fatal(err)
+        gin.SetMode(gin.ReleaseMode)
     }
 }
