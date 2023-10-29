@@ -1,0 +1,28 @@
+name: Docker Image CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Login to Docker Hub
+      run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    - name: Build and Push Docker Image - Python
+      run: |
+        docker build -t gzarba/desk-reservation-app:backend-go .
+        docker push gzarba/desk-reservation-app:backend-go
+    
+    - name: Build and Push Docker Image - Postgres
+      run: |
+        docker build -t gzarba/desk-reservation-app:postgres ./postgresql
+        docker push gzarba/desk-reservation-app:postgres
