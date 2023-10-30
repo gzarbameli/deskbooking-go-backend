@@ -9,6 +9,18 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/gin-contrib/cors" // Importa la libreria per il middleware CORS
     _ "github.com/lib/pq"
+
+    "go.opentelemetry.io/otel/propagation"
+
+    "context"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 const (
@@ -20,6 +32,44 @@ const (
 )
 
 var db *sql.DB
+
+func initTracerAuto() func(context.Context) error {
+
+	exporter, err := otlptrace.New(
+		context.Background(),
+		otlptracegrpc.NewClient(
+			otlptracegrpc.WithInsecure(),
+			otlptracegrpc.WithEndpoint("otel-collector-daemonset-collector.otel-collector.svc.cluster.local:4317"),
+		),
+	)
+
+	if err != nil {
+		log.Fatal("Could not set exporter: ", err)
+	}
+	resources, err := resource.New(
+		context.Background(),
+		resource.WithAttributes(
+			attribute.String("service.name", "backend-go"),
+			attribute.String("application", "backend-go"),
+		),
+	)
+	if err != nil {
+		log.Fatal("Could not set resources: ", err)
+	}
+
+	otel.SetTracerProvider(
+		sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithSpanProcessor(sdktrace.NewBatchSpanProcessor(exporter)),
+			sdktrace.WithSyncer(exporter),
+			sdktrace.WithResource(resources),
+		),
+	)
+
+    otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
+
+	return exporter.Shutdown
+}
 
 func main() {
     // Crea la stringa di connessione al database PostgreSQL
@@ -36,9 +86,14 @@ func main() {
 
     defer db.Close()
 
+    cleanup := initTracerAuto()
+	defer cleanup(context.Background())
     // Crea un'istanza di Gin
     r := gin.Default()
 
+    otelginOption := otelgin.WithPropagators(propagation.TraceContext{})
+    r.Use(otelgin.Middleware("backend-go", otelginOption))
+    
     // Aggiungi il middleware CORS
     r.Use(cors.New(cors.Config{
         AllowOrigins:     []string{"*"}, // Consenti richieste da qualsiasi origine
@@ -51,6 +106,7 @@ func main() {
     // Endpoint per la gestione della richiesta di login
     r.POST("/login", func(c *gin.Context) {
         // Esempio di gestione del login
+
         var requestData struct {
             EmployeeID string `json:"employee_id"`
             Password   string `json:"password"`
@@ -58,6 +114,15 @@ func main() {
         if err := c.ShouldBindJSON(&requestData); err != nil {
             c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
             return
+        }
+
+        headers := c.Request.Header
+
+        // Iterare su tutti gli header e stamparli
+        for key, values := range headers {
+            for _, value := range values {
+                fmt.Printf("Header: %s = %s\n", key, value)
+            }
         }
 
         employeeID := requestData.EmployeeID

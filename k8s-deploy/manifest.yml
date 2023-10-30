@@ -26,24 +26,6 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
-      - name: autoinstrumentation-go
-        image: otel/autoinstrumentation-go
-        imagePullPolicy: IfNotPresent
-        env:
-          - name: OTEL_GO_AUTO_TARGET_EXE
-            value: "/main"
-          - name: OTEL_EXPORTER_OTLP_ENDPOINT
-            value: "http://otel-collector-daemonset-collector.otel-collector.svc.cluster.local:4317"
-          - name: OTEL_SERVICE_NAME
-            value: "backend-go"
-          - name: OTEL_PROPAGATORS
-            value: "tracecontext,baggage"
-        securityContext:
-          capabilities:
-            add:
-              - SYS_PTRACE
-          privileged: true
-          runAsUser: 0
 
 ---
 apiVersion: v1
