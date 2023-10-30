@@ -49,7 +49,7 @@ spec:
         add:
           - SYS_PTRACE
       privileged: true
-    runAsUser: 0
+      runAsUser: 0
 
 
 ---
