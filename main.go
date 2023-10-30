@@ -21,6 +21,12 @@ import (
 
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+
+	"github.com/signalfx/splunk-otel-go/instrumentation/database/sql/splunksql"
+
+	// Make sure to import this so the instrumented driver is registered.
+	_ "github.com/signalfx/splunk-otel-go/instrumentation/github.com/lib/pq/splunkpq"
+
 )
 
 const (
@@ -79,12 +85,16 @@ func main() {
 
     // Apre la connessione al database
     var err error
-    db, err = sql.Open("postgres", connStr)
+    db, err = splunksql.Open("postgres", connStr)
     if err != nil {
         log.Fatal(err)
     }
 
     defer db.Close()
+
+    //// Strumenta il database SQL
+    //db = sql.OpenDB("postgres", db)
+    //db = sqltrace.NewDB(db, sqltrace.WithSpanName(dbtrace.QueryName("Query")))
 
     cleanup := initTracerAuto()
 	defer cleanup(context.Background())
@@ -116,21 +126,16 @@ func main() {
             return
         }
 
-        headers := c.Request.Header
-
-        // Iterare su tutti gli header e stamparli
-        for key, values := range headers {
-            for _, value := range values {
-                fmt.Printf("Header: %s = %s\n", key, value)
-            }
-        }
-
         employeeID := requestData.EmployeeID
         password := requestData.Password
 
         // Esegui la query per il login nel database PostgreSQL
         var employeeIDDB string
-        err := db.QueryRow("SELECT employee_id FROM employee WHERE employee_id = $1 AND password = $2", employeeID, password).Scan(&employeeIDDB)
+
+        // Esegui la query SQL con tracciamento
+        ctx := c.Request.Context()
+        //_, err = db.ExecContext(ctx, "INSERT INTO table (column1, column2) VALUES ($1, $2)", value1, value2)
+        err := db.QueryRowContext(ctx, "SELECT employee_id FROM employee WHERE employee_id = $1 AND password = $2", employeeID, password).Scan(&employeeIDDB)
         if err != nil {
             c.JSON(http.StatusUnauthorized, gin.H{"message": "Incorrect Username and/or Password"})
             return
