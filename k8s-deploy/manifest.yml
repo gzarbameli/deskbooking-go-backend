@@ -16,9 +16,6 @@ spec:
       app: backend-go
   template:
     metadata:
-      annotations:
-        instrumentation.opentelemetry.io/inject-go: "go-instrumentation"
-        instrumentation.opentelemetry.io/otel-go-auto-target-exe: "/main"
       labels:
         app: backend-go
     spec:
@@ -28,6 +25,32 @@ spec:
         imagePullPolicy: Always
         ports:
         - containerPort: 5001
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: autoinstrumentation-go-pod
+spec:
+  shareProcessNamespace: true
+  containers:
+  - name: autoinstrumentation-go
+    image: otel/autoinstrumentation-go
+    imagePullPolicy: IfNotPresent
+    env:
+      - name: OTEL_GO_AUTO_TARGET_EXE
+        value: "/main"
+      - name: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: "http://otel-collector-daemonset-collector.otel-collector.svc.cluster.local:4317"
+      - name: OTEL_SERVICE_NAME
+        value: "backend-go"
+    securityContext:
+      capabilities:
+        add:
+          - SYS_PTRACE
+      privileged: true
+    runAsUser: 0
+
 
 ---
 apiVersion: v1
