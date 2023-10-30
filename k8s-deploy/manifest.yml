@@ -36,6 +36,8 @@ spec:
             value: "http://otel-collector-daemonset-collector.otel-collector.svc.cluster.local:4317"
           - name: OTEL_SERVICE_NAME
             value: "backend-go"
+          - name: OTEL_PROPAGATORS
+            value: "tracecontext,baggage"
         securityContext:
           capabilities:
             add:
