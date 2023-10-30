@@ -19,6 +19,7 @@ spec:
       labels:
         app: backend-go
     spec:
+      shareProcessNamespace: true
       containers:
       - name: backend-go
         image: gzarba/desk-reservation-app:backend-go
