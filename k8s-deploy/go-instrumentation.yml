@@ -12,4 +12,7 @@ spec:
   sampler:
     type: parentbased_traceidratio
     argument: "1"
-  
+  go: 
+    env:
+      - name: OTEL_SERVICE_NAME
+        value: "backend-go"
