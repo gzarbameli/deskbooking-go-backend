@@ -159,11 +159,6 @@ func main() {
 		}),
 	}))
 
-    logger = logger.With(
-        zap.String("trace_id", trace.SpanFromContext(c.Request.Context()).SpanContext().TraceID().String()),
-        zap.String("span_id", trace.SpanFromContext(c.Request.Context()).SpanContext().SpanID().String()),
-    )
-
     // Aggiungi il middleware CORS
     r.Use(cors.New(cors.Config{
         AllowOrigins:     []string{"*"}, // Consenti richieste da qualsiasi origine
