@@ -86,6 +86,21 @@ func initTracerAuto() func(context.Context) error {
 	return exporter.Shutdown
 }
 
+func loggerWithTraceInfo(ctx context.Context, logger *zap.Logger) *zap.Logger {
+    // Recupera il contesto di tracciamento
+    span := trace.SpanFromContext(ctx)
+    traceID := span.SpanContext().TraceID().String()
+    spanID := span.SpanContext().SpanID().String()
+
+    // Crea un nuovo logger con trace_id e span_id aggiunti come campi
+    logger = logger.With(
+        zap.String("trace_id", traceID),
+        zap.String("span_id", spanID),
+    )
+
+    return logger
+}
+
 func main() {
 
     // Crea la stringa di connessione al database PostgreSQL
@@ -140,20 +155,7 @@ func main() {
 			c.Request.Body = io.NopCloser(&buf)
 			fields = append(fields, zap.String("body", string(body)))
 
-            // Check response status code
-            statusCode := c.Writer.Status()
-            fields = append(fields, zap.Int("response_status", statusCode))
-            
-			// Set log level based on response status code
-            var level zapcore.Level
-            switch statusCode {
-            case 401, 500:
-                level = zapcore.ErrorLevel
-            default:
-                level = zapcore.InfoLevel
-            }
-
-            return append(fields, zapcore.Field{Key: "level", Type: zapcore.StringType, String: level.String()})
+            return fields
 		}),
 	}))
 
@@ -195,7 +197,7 @@ func main() {
         //_, err = db.ExecContext(ctx, "INSERT INTO table (column1, column2) VALUES ($1, $2)", value1, value2)
         err := db.QueryRowContext(ctx, "SELECT employee_id FROM employee WHERE employee_id = $1 AND password = $2", employeeID, password).Scan(&employeeIDDB)
         if err != nil {
-            logger.Error("Fail while recovering data from DB...", zap.Error(err))
+            loggerWithTraceInfo(c.Request.Context(), logger).Error("Fail while recovering data from DB", zap.Error(err))
             c.JSON(http.StatusUnauthorized, gin.H{"message": "Incorrect Username and/or Password"})
             return
         }
