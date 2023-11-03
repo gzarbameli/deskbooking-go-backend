@@ -19,6 +19,10 @@ RUN go get -u go.opentelemetry.io/otel/sdk/resource
 RUN go get -u go.opentelemetry.io/otel/sdk/trace
 RUN go get -u github.com/signalfx/splunk-otel-go/instrumentation/database/sql/splunksql
 RUN go get -u github.com/signalfx/splunk-otel-go/instrumentation/github.com/lib/pq/splunkpq
+RUN go get -u github.com/gin-contrib/zap
+RUN go get -u go.uber.org/zap
+RUN go get -u go.uber.org/zap/zapcore
+
 # Installa le dipendenze del tuo progetto (se necessario)
 #RUN go mod download
 

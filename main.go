@@ -5,6 +5,14 @@ import (
     "fmt"
     "log"
     "net/http"
+    "bytes"
+	"io"
+	"time"
+
+	ginzap "github.com/gin-contrib/zap"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
     "github.com/gin-gonic/gin"
     "github.com/gin-contrib/cors" // Importa la libreria per il middleware CORS
@@ -15,6 +23,7 @@ import (
     "context"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
+    "go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -78,6 +87,7 @@ func initTracerAuto() func(context.Context) error {
 }
 
 func main() {
+
     // Crea la stringa di connessione al database PostgreSQL
     connStr := fmt.Sprintf("host=%s port=%d user=%s "+
         "password=%s dbname=%s sslmode=disable",
@@ -104,6 +114,36 @@ func main() {
     otelginOption := otelgin.WithPropagators(propagation.TraceContext{})
     r.Use(otelgin.Middleware("backend-go", otelginOption))
     
+    logger, _ := zap.NewProduction()
+
+	r.Use(ginzap.GinzapWithConfig(logger, &ginzap.Config{
+		UTC:        true,
+		TimeFormat: time.RFC3339,
+		Context: ginzap.Fn(func(c *gin.Context) []zapcore.Field {
+			fields := []zapcore.Field{}
+			// log request ID
+			if requestID := c.Writer.Header().Get("X-Request-Id"); requestID != "" {
+				fields = append(fields, zap.String("request_id", requestID))
+			}
+
+			// log trace and span ID
+			if trace.SpanFromContext(c.Request.Context()).SpanContext().IsValid() {
+				fields = append(fields, zap.String("trace_id", trace.SpanFromContext(c.Request.Context()).SpanContext().TraceID().String()))
+				fields = append(fields, zap.String("span_id", trace.SpanFromContext(c.Request.Context()).SpanContext().SpanID().String()))
+			}
+
+			// log request body
+			var body []byte
+			var buf bytes.Buffer
+			tee := io.TeeReader(c.Request.Body, &buf)
+			body, _ = io.ReadAll(tee)
+			c.Request.Body = io.NopCloser(&buf)
+			fields = append(fields, zap.String("body", string(body)))
+
+			return fields
+		}),
+	}))
+
     // Aggiungi il middleware CORS
     r.Use(cors.New(cors.Config{
         AllowOrigins:     []string{"*"}, // Consenti richieste da qualsiasi origine
