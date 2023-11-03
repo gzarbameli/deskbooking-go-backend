@@ -140,7 +140,16 @@ func main() {
 			c.Request.Body = io.NopCloser(&buf)
 			fields = append(fields, zap.String("body", string(body)))
 
-			return fields
+			// Set log level based on response status code
+            var level zapcore.Level
+            switch statusCode {
+            case 401, 500:
+                level = zapcore.ErrorLevel
+            default:
+                level = zapcore.InfoLevel
+            }
+
+            return append(fields, zap.Level(level))
 		}),
 	}))
 
