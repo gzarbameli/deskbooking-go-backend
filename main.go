@@ -177,7 +177,7 @@ func main() {
         //_, err = db.ExecContext(ctx, "INSERT INTO table (column1, column2) VALUES ($1, $2)", value1, value2)
         err := db.QueryRowContext(ctx, "SELECT employee_id FROM employee WHERE employee_id = $1 AND password = $2", employeeID, password).Scan(&employeeIDDB)
         if err != nil {
-            logger.Error("Fail while recovering data from DB...", err)
+            logger.Error("Fail while recovering data from DB...", zap.Error(err))
             c.JSON(http.StatusUnauthorized, gin.H{"message": "Incorrect Username and/or Password"})
             return
         }
