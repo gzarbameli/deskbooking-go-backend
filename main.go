@@ -177,7 +177,7 @@ func main() {
             Password   string `json:"password"`
         }
         if err := c.ShouldBindJSON(&requestData); err != nil {
-            c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+            c.AbortWithStatus(http.StatusInternalServerError) 
             return
         }
 
@@ -193,7 +193,7 @@ func main() {
         err := db.QueryRowContext(ctx, "SELECT employee_id FROM employee WHERE employee_id = $1 AND password = $2", employeeID, password).Scan(&employeeIDDB)
         if err != nil {
             loggerWithTraceInfo(c.Request.Context(), logger).Error("Error in recovering credentials from DB", zap.Error(err))
-            c.JSON(http.StatusBadRequest, gin.H{"Error in recovering credentials from DB": err.Error()})
+            c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"Error in recovering credentials from DB": err.Error()})
             return
         }
 
