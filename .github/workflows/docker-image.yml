@@ -16,9 +16,9 @@ jobs:
       - name: Deployment Sync
         run: |
           curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          install -m 555 argocd-linux-amd64 ./argocd
           rm argocd-linux-amd64
-          argocd login argocd-server.argocd.svc.cluster.local --insecure --username ${ARGOCD_USERNAME} --password ${ARGOCD_PASSWORD}
-          argocd app actions run "desk-reservation-app-backend-go" restart --kind Deployment |& tee response.txt
+          ./argocd login argocd-server.argocd.svc.cluster.local --insecure --username ${ARGOCD_USERNAME} --password ${ARGOCD_PASSWORD}
+          ./argocd app actions run "desk-reservation-app-backend-go" restart --kind Deployment |& tee response.txt
           cat response.txt
           if [ -s response.txt ]; then exit 1; fi
