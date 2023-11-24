@@ -1,0 +1,99 @@
+name: GitHub Workflow
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+    
+jobs:
+
+  docker_build_and_push:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Login to Docker Hub
+      run: docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
+
+    - name: Build and Push Docker Image - Go
+      run: |
+        docker build -t gzarba/desk-reservation-app:backend-go .
+        docker push gzarba/desk-reservation-app:backend-go
+    
+    - name: Build and Push Docker Image - Postgres
+      run: |
+        docker build -t gzarba/desk-reservation-app:postgres ./postgresql
+        docker push gzarba/desk-reservation-app:postgres
+
+  ### DOCKER IMAGE SECURITY SCAN
+
+  docker_security_scan:
+    needs: docker_build_and_push
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'gzarba/desk-reservation-app:backend-go'
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+  
+  ### KUBERNETES MANIFEST VALIDATION
+
+  kube_validation:
+    needs: docker_build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: login to Github Packages
+        run: echo "${{ github.token }}" | docker login https://ghcr.io -u ${GITHUB_ACTOR} --password-stdin
+      - uses: actions/checkout@v2
+      - uses: docker://ghcr.io/yannh/kubeconform:latest
+        with:
+          entrypoint: '/kubeconform'
+          args: "-summary -output json k8s-deploy/manifest.yml"
+  
+  ### KUBERNETES MANIFEST SECURITY SCAN
+
+  kube_security_scan:
+    needs: docker_build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+    - uses: actions/checkout@v3
+    - uses: kubescape/github-action@main
+      continue-on-error: true
+      with:
+        format: sarif
+        outputFile: results
+        files: "k8s-deploy/*"
+    - name: Upload Kubescape scan results to Github Code Scanning
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: results.sarif
+
+  ### ARGOCD DEPLOYMENT ROLLOUT
+  
+  argocd_sync:
+    needs: [docker_security_scan, kube_validation, kube_security_scan]
+    runs-on: actions_runner_dev
+    steps:
+      - name: Deployment Sync
+        run: |
+          curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
+          rm argocd-linux-amd64
+          argocd login argocd-server.argocd.svc.cluster.local --insecure --username  ${{ secrets.ARGOCD_USERNAME }} --password ${{ secrets.ARGOCD_PASSWORD }}
+          argocd app actions run "desk-reservation-app-backend-go" restart --kind Deployment |& tee response.txt
+          cat response.txt
+          if [ -s response.txt ]; then exit 1; fi
