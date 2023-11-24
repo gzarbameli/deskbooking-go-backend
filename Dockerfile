@@ -22,6 +22,7 @@ RUN go get -u github.com/signalfx/splunk-otel-go/instrumentation/github.com/lib/
 RUN go get -u github.com/gin-contrib/zap
 RUN go get -u go.uber.org/zap
 RUN go get -u go.uber.org/zap/zapcore
+RUN go get -u github.com/Depado/ginprom
 
 # Installa le dipendenze del tuo progetto (se necessario)
 #RUN go mod download

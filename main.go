@@ -33,6 +33,8 @@ import (
 
 	"github.com/signalfx/splunk-otel-go/instrumentation/database/sql/splunksql"
 
+    "github.com/Depado/ginprom"
+
 	// Make sure to import this so the instrumented driver is registered.
 	_ "github.com/signalfx/splunk-otel-go/instrumentation/github.com/lib/pq/splunkpq"
 
@@ -117,10 +119,6 @@ func main() {
 
     defer db.Close()
 
-    //// Strumenta il database SQL
-    //db = sql.OpenDB("postgres", db)
-    //db = sqltrace.NewDB(db, sqltrace.WithSpanName(dbtrace.QueryName("Query")))
-
     cleanup := initTracerAuto()
 	defer cleanup(context.Background())
     // Crea un'istanza di Gin
@@ -129,6 +127,14 @@ func main() {
     otelginOption := otelgin.WithPropagators(propagation.TraceContext{})
     r.Use(otelgin.Middleware("backend-go", otelginOption))
     
+    p := ginprom.New(
+		ginprom.Engine(r),
+		ginprom.Subsystem("backend"),
+        ginprom.Namespace("go"),
+		ginprom.Path("/metrics"),
+	)
+	r.Use(p.Instrument())
+
     logger, _ := zap.NewProduction()
 
 	r.Use(ginzap.GinzapWithConfig(logger, &ginzap.Config{
