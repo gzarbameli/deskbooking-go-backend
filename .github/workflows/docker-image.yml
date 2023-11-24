@@ -16,6 +16,7 @@ jobs:
       - name: Deployment Sync
         run: |
           curl -sSL -o argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
-          install -m 555 argocd-linux-amd64 ./argocd
+          sudo install -m 555 argocd-linux-amd64 /usr/local/bin/argocd
           rm argocd-linux-amd64
+          argocd login argocd-server.argocd.svc.cluster.local --insecure --username ${ARGOCD_USERNAME} --password ${ARGOCD_PASSWORD}
           
